@@ -263,6 +263,12 @@ function pagination() {
           return;
         }
 
+        if(activeBtn > 2){
+          await list(activeBtn + 1);
+          drawControls(activeBtn - 1, "", 3); // TODO: "-1" при максимальном значении 5 -> заменить на универсальный подсчёт, тоже для последнего аргумента
+          return;
+        }
+
         if (activeBtn !== maxTab) {
           await list(activeBtn + 1);
           changeActiveBtn(activeBtnId + 1);
@@ -271,7 +277,15 @@ function pagination() {
         }
       }
 
+      
       if (e.target.id == "back") {
+        if(activeBtn > 3){
+          await list(activeBtn - 1);
+          drawControls(activeBtn - 3, "", 3); // TODO: "-1" при максимальном значении 5 -> заменить на универсальный подсчёт, тоже для последнего аргумента
+          return;
+        }
+
+        console.log(activeBtn);
         if (activeBtnId == 0) {
           previosControlsPage();
           return;
