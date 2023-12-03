@@ -3,7 +3,7 @@
 }
 
 .postsWrapper{
-    padding: 20px;
+    padding: 10px;
     margin: 0 auto;
     border: 1px solid #444;
     margin-bottom: 10px;
@@ -17,6 +17,17 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-around;
+    margin-bottom: 10px;
+}
+
+.arrows{
+    display: flex;
+    max-width: 600px;
+    justify-content: space-between;
+    font-size: 30px;
+    font-weight: bold;
+    margin: 0 auto;
+    cursor: pointer;
 }
 
 .page{
@@ -42,6 +53,7 @@
 }
 
 .postBody{
+    padding-bottom: 5px;
     margin: 0;
     font-size: 16px;
     border-bottom: 1px solid black;
