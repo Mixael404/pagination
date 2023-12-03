@@ -19,7 +19,7 @@ function pagination() {
   const postsWrapper = document.querySelector(".postsWrapper");
   const controls = document.querySelector(".controls");
   const arrows = document.querySelector(".arrows");
-  const maxItemsPerPage = 8;
+  const maxItemsPerPage = 10;
   const maxButtonsInControlPanel = 5;
   let totalPosts = 100;
   const maxTab = Math.ceil(totalPosts / maxItemsPerPage);
@@ -79,27 +79,15 @@ function pagination() {
 
   function getPosts(page) {
     return fetch(`https://jsonplaceholder.typicode.com/posts?_page=${page}&_limit=${maxItemsPerPage}`)
-      // .then(response => console.log(response.headers))
       .then(response => response.json())
       .then(response => {
-        // TODO: уменьшить функцию (разбить на мелкие функции)
-        // console.trace("Скачал данные");
         let strResponse = JSON.stringify(response);
-
         let state = JSON.parse(localStorage.getItem("newPosts"));
+
         if (state === null) {
           state = [];
         }
 
-        const hasObj = state.findIndex((obj) => {
-          if (obj.id === response[0].id) {
-            return true;
-          }
-        });
-        if (hasObj !== -1) {
-          localStorage.setItem("End", false);
-          return
-        }
         state.push(...response);
         state.sort((a, b) => a.id > b.id ? 1 : -1);
         const strState = JSON.stringify(state);
@@ -108,7 +96,6 @@ function pagination() {
 
         localStorage.setItem("posts", strResponse);
         localStorage.setItem("postsState", strResponse);
-
       })
   }
 
@@ -136,15 +123,9 @@ function pagination() {
  * @param {"forward" | "back"} destination - direction of drawing
  * @param {boolean} start - Is draw after now page loaded
  */
-  async function drawControls(first, destination, start) {
-    if (destination !== "back" && !start) {
-      await getPosts(first);
-    }
-    localStorage.setItem("End", false);
+  async function drawControls(first, destination) {
     controls.innerHTML = "";
     const last = first + 4;
-    const posts = JSON.parse(localStorage.getItem("posts"));
-    const pagesAmount = Math.ceil(posts.length / maxItemsPerPage);
     for (let i = first; i <= last; i++) {
       const pageBtn = createEl("div", "page", i);
       controls.append(pageBtn);
@@ -154,12 +135,49 @@ function pagination() {
     }
     drawCurrentState(destination);
   };
+
+
   // Реализовать функцию отрисовки панели управления от начального стейта
   // Взять текущий стейт
   // По последнему посту понять раскладку (разделить на кол-во постов на одной странице)
   // Рассчитать, с какой раскладки должно начинаться
   // Запустить drawControls как ниже, вместо 1 поставить рассчитанную раскладку
   drawControls(1, "forward", true);
+
+
+
+  function checkStateOnNextObject(arr, itemId) {
+    let res = arr.some((obj) => {
+      if (obj.id === itemId) {
+        return true
+      }
+    })
+    return res;
+  }
+
+  function drawPosts(state, nextItem) {
+    const postsToShow = getNecesaryPostsFromState(state, nextItem);
+
+    const strPosts = JSON.stringify(postsToShow);
+    localStorage.setItem("postsState", strPosts);
+
+    postsWrapper.innerHTML = "";
+
+    for (let i = 0; i < postsToShow.length; i++) {
+      postsWrapper.append(createListItem(postsToShow[i]));
+    }
+  }
+
+
+  function getNecesaryPostsFromState(state, nextItem) {
+    const postsToShow = [];
+    for (let i = nextItem; i < nextItem + maxItemsPerPage; i++) {
+      postsToShow.push(state[i - 1]);
+    }
+    return postsToShow;
+  }
+
+
 
   async function list(page) {
     let state = JSON.parse(localStorage.getItem("newPosts"));
@@ -168,41 +186,14 @@ function pagination() {
       state = [];
     }
 
-    // Сделать проверку без цикла, только по первому элементу
-    let hasObj = state.findIndex((obj) => {
-      if (obj.id == nextFirstItemId) {
-        return true
-      }
-    })
+    let hasObj = checkStateOnNextObject(state, nextFirstItemId);
 
-
-    if (hasObj != -1) {
-      localStorage.setItem("End", false);
-      const postsToShow = [];
-      for (let i = nextFirstItemId; i < nextFirstItemId + maxItemsPerPage; i++) {
-        postsToShow.push(state[i - 1]);
-      }
-      const strPosts = JSON.stringify(postsToShow);
-      localStorage.setItem("postsState", strPosts);
-      postsWrapper.innerHTML = "";
-      for (let i = 0; i < postsToShow.length; i++) {
-        postsWrapper.append(createListItem(postsToShow[i]));
-      }
+    if (hasObj) {
+      drawPosts(state, nextFirstItemId);
     } else {
       await getPosts(page);
-      const posts = localStorage.getItem("posts");
-      const parsedPosts = JSON.parse(posts);
-      postsWrapper.innerHTML = "";
-      const currentPostsArr = [];
-
-      for (let i = 0; i < parsedPosts.length; i++) {
-        postsWrapper.append(createListItem(parsedPosts[i]));
-        currentPostsArr.push(parsedPosts[i])
-      }
-
-      // console.log(currentPostsArr);
-      const currentPostsString = JSON.stringify(currentPostsArr);
-      localStorage.setItem("postsState", currentPostsString);
+      const newState = JSON.parse(localStorage.getItem("newPosts"));
+      drawPosts(newState, nextFirstItemId);
     }
 
 
@@ -213,10 +204,8 @@ function pagination() {
 
   controls.addEventListener("click", e => {
     if (e.target.classList.contains("page")) {
-      console.log("Нажал на кружочек");
       const arrControls = Array.from(controls.children);
       const newActiveTwo = arrControls.indexOf(e.target);
-      // console.log(newActiveTwo);
       const currentPage = +(e.target.textContent);
       changeActiveBtn(newActiveTwo);
       list(currentPage);
@@ -227,42 +216,43 @@ function pagination() {
 
   arrows.addEventListener("click", arrowsTab);
 
+
+  function findActiveBtn(controlButons) {
+    const currentBtn = controlButons.findIndex((button) => {
+      if (button.classList.contains("selected")) {
+        return true;
+      }
+    })
+    return currentBtn;
+  }
+
   async function arrowsTab(e) {
     if (e.target.classList.contains("arrow")) {
-      const posts = localStorage.getItem("postsState");
-      const postsArr = JSON.parse(posts);
       const controlButons = Array.from(controls.children);
-      const currentBtn = controlButons.findIndex((button) => {
-        if (button.classList.contains("selected")) {
-          return true;
-        }
-      })
-      const newActiveTwo = +(controlButons[currentBtn].textContent);
+      const activeBtnId = findActiveBtn(controlButons);
+      const activeBtn = +(controlButons[activeBtnId].textContent);
 
       if (e.target.id == "forward") {
-        if (currentBtn == maxButtonsInControlPanel-1) {
+        if (activeBtnId == maxButtonsInControlPanel - 1) {
           nextControlsPage();
           return;
         }
 
-        
-        if (newActiveTwo !== maxTab) {
-          await list(newActiveTwo + 1);
-          changeActiveBtn(currentBtn + 1);
+        if (activeBtn !== maxTab) {
+          await list(activeBtn + 1);
+          changeActiveBtn(activeBtnId + 1);
         } else {
           console.log("Дальше пусто!");
         }
       }
 
-
       if (e.target.id == "back") {
-        if (currentBtn == 0) {
+        if (activeBtnId == 0) {
           previosControlsPage();
           return;
         }
-        changeActiveBtn(currentBtn - 1)
-        console.log(newActiveTwo);
-        list(newActiveTwo - 1);
+        changeActiveBtn(activeBtnId - 1)
+        list(activeBtn - 1);
       }
     }
   }
@@ -298,8 +288,6 @@ function pagination() {
       return;
     }
     let thisPaginationPage = +(controls.firstChild.textContent);
-    console.log(thisPaginationPage);
-    await getPosts(thisPaginationPage - 1);
     await list(thisPaginationPage - 1);
     drawControls(thisPaginationPage - 5, "back");
   }
