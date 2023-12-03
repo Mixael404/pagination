@@ -81,7 +81,6 @@ function pagination() {
     return fetch(`https://jsonplaceholder.typicode.com/posts?_page=${page}&_limit=${maxItemsPerPage}`)
       .then(response => response.json())
       .then(response => {
-        let strResponse = JSON.stringify(response);
         let state = JSON.parse(localStorage.getItem("newPosts"));
 
         if (state === null) {
@@ -92,23 +91,20 @@ function pagination() {
         state.sort((a, b) => a.id > b.id ? 1 : -1);
         const strState = JSON.stringify(state);
         localStorage.setItem("newPosts", strState);
-
-
-        localStorage.setItem("posts", strResponse);
-        localStorage.setItem("postsState", strResponse);
       })
   }
 
   // 
-  function drawCurrentState(destination) {
+  function drawCurrentState(destination, activeBtn) {
     if (localStorage.postsState) {
       postsWrapper.innerHTML = "";
       const posts = localStorage.getItem("postsState");
       const postsArr = JSON.parse(posts);
-      if (destination === "forward") {
+      if (activeBtn) {
+        controls.children[activeBtn - 1].classList.add("selected");
+      } else if (destination === "forward") {
         controls.children[0].classList.add("selected");
-      }
-      if (destination === "back") {
+      } else if (destination === "back") {
         controls.lastChild.classList.add("selected");
       }
       postsArr.forEach(element => {
@@ -121,9 +117,9 @@ function pagination() {
  * Represents buttons of paginatio 
  * @param {number} first - First btn index
  * @param {"forward" | "back"} destination - direction of drawing
- * @param {boolean} start - Is draw after now page loaded
+ * @param {number} index - Which button to make "selected"
  */
-  async function drawControls(first, destination) {
+  async function drawControls(first, destination, activeBtn) {
     controls.innerHTML = "";
     const last = first + 4;
     for (let i = first; i <= last; i++) {
@@ -133,8 +129,26 @@ function pagination() {
         break;
       }
     }
-    drawCurrentState(destination);
+    drawCurrentState(destination, activeBtn);
   };
+
+
+  function drawCurrentControls() {
+    const currentState = JSON.parse(localStorage.getItem("postsState"));
+    const currentPage = currentState[maxItemsPerPage - 1].id / maxItemsPerPage;
+    let firstPage;
+    let currentIndex;
+    if (currentPage <= 5) {
+      currentIndex = currentPage;
+      firstPage = 1;
+    } else {
+      currentIndex = currentPage % maxButtonsInControlPanel;
+      firstPage = currentPage - currentIndex + 1;
+    }
+    drawControls(firstPage, "", currentIndex);
+  }
+
+  drawCurrentControls();
 
 
   // Реализовать функцию отрисовки панели управления от начального стейта
@@ -142,7 +156,7 @@ function pagination() {
   // По последнему посту понять раскладку (разделить на кол-во постов на одной странице)
   // Рассчитать, с какой раскладки должно начинаться
   // Запустить drawControls как ниже, вместо 1 поставить рассчитанную раскладку
-  drawControls(1, "forward", true);
+  // drawControls(1, "forward", true);
 
 
 
@@ -211,7 +225,6 @@ function pagination() {
       list(currentPage);
     }
   })
-
 
 
   arrows.addEventListener("click", arrowsTab);
