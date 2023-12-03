@@ -240,13 +240,18 @@ function pagination() {
       const newActiveTwo = +(controlButons[currentBtn].textContent);
 
       if (e.target.id == "forward") {
-        if (newActiveTwo == maxTab) {
+        if (currentBtn == maxButtonsInControlPanel-1) {
           nextControlsPage();
           return;
         }
 
-        await list(newActiveTwo + 1);
-        changeActiveBtn(currentBtn + 1);
+        
+        if (newActiveTwo !== maxTab) {
+          await list(newActiveTwo + 1);
+          changeActiveBtn(currentBtn + 1);
+        } else {
+          console.log("Дальше пусто!");
+        }
       }
 
 
@@ -274,8 +279,6 @@ function pagination() {
 
   async function nextControlsPage() {
     let thisPaginationPage = +(controls.lastChild.textContent);
-    console.log(thisPaginationPage);
-    console.log(maxTab);
     if (maxTab <= thisPaginationPage) {
       console.log("Дальше кнопок нет!");
       return;
