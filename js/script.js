@@ -132,8 +132,20 @@ function pagination() {
     drawCurrentState(destination, activeBtn);
   };
 
+  function firstInit(){
+    return fetch(`https://jsonplaceholder.typicode.com/posts?_page=1&_limit=${maxItemsPerPage}`)
+      .then(response => response.json())
+      .then((response) => {
+        const strResponse = JSON.stringify(response);
+        localStorage.setItem("postsState", strResponse);
+        localStorage.setItem("newPosts", strResponse);
+      })
+  }
 
-  function drawCurrentControls() {
+  async function drawCurrentControls() {
+    if(!localStorage.getItem("postsState")){
+      await firstInit();
+    }
     const currentState = JSON.parse(localStorage.getItem("postsState"));
     const currentPage = currentState[maxItemsPerPage - 1].id / maxItemsPerPage;
     let firstPage;
