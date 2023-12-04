@@ -9,7 +9,15 @@ console.log('start 3.8');
 class Pagination {
   constructor(config) {
     this.root = document.querySelector(config.wrapper);
-    this.postsWrapper = this.root.querySelector(".postsWrapper")
+    this.postsWrapper = this.root.querySelector(".postsWrapper");
+    this.controls = this.root.querySelector(".controls");
+    this.arrows = this.root.querySelector(".arrows");
+    this.maxItemsPerPage = 8;
+    this.maxButtonsInControlPanel = 7;
+    this.totalPosts = 100;
+    this.maxTab = Math.ceil(this.totalPosts / this.maxItemsPerPage);
+    this.middleTab = Math.ceil(this.maxButtonsInControlPanel / 2);
+    this.amountOfButtonsAroundSelected = Math.floor(this.maxButtonsInControlPanel / 2);
   }
 }
 
@@ -88,9 +96,12 @@ function pagination() {
         if (state === null) {
           state = [];
         }
-
-        state.push(...response);
-        state.sort((a, b) => a.id > b.id ? 1 : -1);
+        for(let i = 0; i < response.length; i++){
+          const index = response[i].id - 1;
+          state[index] = response[i];
+        }
+        // state.push(...response);
+        // state.sort((a, b) => a.id > b.id ? 1 : -1);
         const strState = JSON.stringify(state);
         localStorage.setItem("newPosts", strState);
       })
@@ -176,7 +187,9 @@ function pagination() {
 
   function checkStateOnNextObject(arr, itemId) {
     let res = arr.some((obj) => {
-      if (obj.id === itemId) {
+      if (!obj){
+        return;
+      } else if (obj.id === itemId) {
         return true
       }
     })
@@ -215,7 +228,6 @@ function pagination() {
     }
 
     let hasObj = checkStateOnNextObject(state, nextFirstItemId);
-
     if (hasObj) {
       drawPosts(state, nextFirstItemId);
     } else {
@@ -342,9 +354,12 @@ function pagination() {
   }
 
 
-  next.addEventListener("click", nextControlsPage);
+  next.addEventListener("click", toFinalPage);
 
-
+  async function toFinalPage(){
+    await list(maxTab);
+    drawControls(maxTab - maxButtonsInControlPanel + 1, "", maxButtonsInControlPanel)
+  }
 
   async function previosControlsPage() {
     if (controls.firstChild.textContent == "1") {
