@@ -19,10 +19,12 @@ function pagination() {
   const postsWrapper = document.querySelector(".postsWrapper");
   const controls = document.querySelector(".controls");
   const arrows = document.querySelector(".arrows");
-  const maxItemsPerPage = 10;
-  const maxButtonsInControlPanel = 5;
+  const maxItemsPerPage = 8;
+  const maxButtonsInControlPanel = 7;
   let totalPosts = 100;
   const maxTab = Math.ceil(totalPosts / maxItemsPerPage);
+  const middleTab = Math.ceil(maxButtonsInControlPanel / 2);
+  const amountOfButtonsAroundSelected = Math.floor(maxButtonsInControlPanel / 2);
 
 
   // 1 - 8   <=======================
@@ -121,7 +123,7 @@ function pagination() {
  */
   async function drawControls(first, destination, activeBtn) {
     controls.innerHTML = "";
-    const last = first + 4;
+    const last = first + maxButtonsInControlPanel - 1;
     for (let i = first; i <= last; i++) {
       const pageBtn = createEl("div", "page", i);
       controls.append(pageBtn);
@@ -132,7 +134,7 @@ function pagination() {
     drawCurrentState(destination, activeBtn);
   };
 
-  function firstInit(){
+  function firstInit() {
     return fetch(`https://jsonplaceholder.typicode.com/posts?_page=1&_limit=${maxItemsPerPage}`)
       .then(response => response.json())
       .then((response) => {
@@ -143,7 +145,7 @@ function pagination() {
   }
 
   async function drawCurrentControls() {
-    if(!localStorage.getItem("postsState")){
+    if (!localStorage.getItem("postsState")) {
       await firstInit();
     }
     const currentState = JSON.parse(localStorage.getItem("postsState"));
@@ -228,16 +230,41 @@ function pagination() {
   }
 
 
-  controls.addEventListener("click", e => {
+  controls.addEventListener("click", controlsTab);
+
+  function turnOnNecesseryBtn(currentPage) {
+    const newControls = Array.from(controls.children);
+    const buttonIndex = newControls.findIndex((btn) => {
+      if (btn.textContent == currentPage) {
+        return true;
+      }
+    })
+    changeActiveBtn(buttonIndex);
+  }
+
+  async function controlsTab(e) {
     if (e.target.classList.contains("page")) {
       const arrControls = Array.from(controls.children);
       const newActiveTwo = arrControls.indexOf(e.target);
       const currentPage = +(e.target.textContent);
-      changeActiveBtn(newActiveTwo);
-      list(currentPage);
-    }
-  })
+      if (currentPage < middleTab) {
 
+        // Как "зажечь" нужную кнопку и избежать конфликта индексов до/после отрисовки(при пограничных случаях)?
+        // В данный момент есть таргет-кнопка
+        // 1) Выполнить отрисовку
+        // 2) Зажечь вручную кнопку, на которую был клик -> провести поиск нужной кнопки по текст контенту(он не изменился после отрисовки)
+
+        drawControls(1, "", newActiveTwo + 1);
+        turnOnNecesseryBtn(currentPage);
+      } else if (currentPage > maxTab - amountOfButtonsAroundSelected) {
+        drawControls(maxTab - maxButtonsInControlPanel + 1, "", newActiveTwo + 1);
+        turnOnNecesseryBtn(currentPage);
+      } else {
+        drawControls(currentPage - amountOfButtonsAroundSelected, "", middleTab)
+      }
+      await list(currentPage);
+    }
+  }
 
   arrows.addEventListener("click", arrowsTab);
 
@@ -254,43 +281,41 @@ function pagination() {
   async function arrowsTab(e) {
     if (e.target.classList.contains("arrow")) {
       const controlButons = Array.from(controls.children);
-      const activeBtnId = findActiveBtn(controlButons);
-      const activeBtn = +(controlButons[activeBtnId].textContent);
+      const activeBtnIndex = findActiveBtn(controlButons);
+      const activeBtn = +(controlButons[activeBtnIndex].textContent);
 
       if (e.target.id == "forward") {
-        if (activeBtnId == maxButtonsInControlPanel - 1) {
+        if (activeBtnIndex == maxButtonsInControlPanel - 1) {
           nextControlsPage();
           return;
         }
-
-        if(activeBtn > 2){
+        if (activeBtn > amountOfButtonsAroundSelected && activeBtn < maxTab - amountOfButtonsAroundSelected) {
           await list(activeBtn + 1);
-          drawControls(activeBtn - 1, "", 3); // TODO: "-1" при максимальном значении 5 -> заменить на универсальный подсчёт, тоже для последнего аргумента
+          drawControls(activeBtn - amountOfButtonsAroundSelected + 1, "", middleTab); // TODO: "-1" при максимальном значении 5 -> заменить на универсальный подсчёт, тоже для последнего аргумента
           return;
         }
 
         if (activeBtn !== maxTab) {
           await list(activeBtn + 1);
-          changeActiveBtn(activeBtnId + 1);
+          changeActiveBtn(activeBtnIndex + 1);
         } else {
           console.log("Дальше пусто!");
         }
       }
 
-      
+
       if (e.target.id == "back") {
-        if(activeBtn > 3){
+        if (activeBtn > amountOfButtonsAroundSelected + 1 && activeBtn < maxTab - amountOfButtonsAroundSelected + 1) {
           await list(activeBtn - 1);
-          drawControls(activeBtn - 3, "", 3); // TODO: "-1" при максимальном значении 5 -> заменить на универсальный подсчёт, тоже для последнего аргумента
+          drawControls(activeBtn - amountOfButtonsAroundSelected - 1, "", middleTab); // TODO: "-1" при максимальном значении 5 -> заменить на универсальный подсчёт, тоже для последнего аргумента
           return;
         }
 
-        console.log(activeBtn);
-        if (activeBtnId == 0) {
+        if (activeBtnIndex == 0) {
           previosControlsPage();
           return;
         }
-        changeActiveBtn(activeBtnId - 1)
+        changeActiveBtn(activeBtnIndex - 1)
         list(activeBtn - 1);
       }
     }
