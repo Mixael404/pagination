@@ -235,10 +235,6 @@ function pagination() {
       const newState = JSON.parse(localStorage.getItem("newPosts"));
       drawPosts(newState, nextFirstItemId);
     }
-
-
-
-
   }
 
 
@@ -343,23 +339,31 @@ function pagination() {
   }
 
 
-  async function nextControlsPage() {
-    let thisPaginationPage = +(controls.lastChild.textContent);
-    if (maxTab <= thisPaginationPage) {
-      console.log("Дальше кнопок нет!");
-      return;
-    }
-    await list(thisPaginationPage + 1);
-    drawControls(thisPaginationPage + 1, "forward");
-  }
 
 
   next.addEventListener("click", toFinalPage);
 
   async function toFinalPage(){
+    const isFinalActive = (controls.lastChild.textContent == maxTab) && (controls.lastChild.classList.contains("selected"));
+    if(isFinalActive){
+      console.log("Max!");
+      return;
+    }
     await list(maxTab);
     drawControls(maxTab - maxButtonsInControlPanel + 1, "", maxButtonsInControlPanel)
   }
+
+  async function toFirstPage(){
+    const isFirstActive = (controls.firstChild.textContent == 1) && (controls.firstChild.classList.contains("selected"));
+    if(isFirstActive){
+      console.log("Min!");
+      return;
+    }
+    await list(1);
+    drawControls(1, "", 1);
+  }
+
+  previos.addEventListener("click", toFirstPage);
 
   async function previosControlsPage() {
     if (controls.firstChild.textContent == "1") {
@@ -371,8 +375,16 @@ function pagination() {
     drawControls(thisPaginationPage - 5, "back");
   }
 
+  async function nextControlsPage() {
+    let thisPaginationPage = +(controls.lastChild.textContent);
+    if (maxTab <= thisPaginationPage) {
+      console.log("Дальше кнопок нет!");
+      return;
+    }
+    await list(thisPaginationPage + 1);
+    drawControls(thisPaginationPage + 1, "forward");
+  }
 
-  previos.addEventListener("click", previosControlsPage);
 
 }
 
