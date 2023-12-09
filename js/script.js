@@ -6,6 +6,9 @@ console.log('start 3.8');
 //   <<   <  [1] 2 3   >   >>
 // 
 
+// Дополнительно 6 - научиться проверять, есть ли интернет у клиента И работает ли нормально сервер
+// Если нет, то перекрашивать пагинацию так, чтобы видеть "сохраненные" и "отсутствующие" страницы. В идеале - не давать кликать на те, которых нету
+
 
 class Pagination {
   constructor(config) {
@@ -15,22 +18,130 @@ class Pagination {
     this.arrows = this.root.querySelector(".arrows");
     this.next = this.root.querySelector("#next");
     this.previos = this.root.querySelector("#previos");
-    this.maxItemsPerPage = 8;
-    this.maxButtonsInControlPanel = 7;
+    this.maxItemsPerPage = config.maxItemsPerPage;
+    this.maxButtonsInControlPanel = config.maxButtonsInControlPanel;
+    this.baseUrl = config.url;
+    this.url = config.url + this.maxItemsPerPage;
     this.totalPosts = 100;
+    this.downloaded = {};
     this.maxTab = Math.ceil(this.totalPosts / this.maxItemsPerPage);
     this.middleTab = Math.ceil(this.maxButtonsInControlPanel / 2);
     this.amountOfButtonsAroundSelected = Math.floor(this.maxButtonsInControlPanel / 2);
+    this.linkBreaker = document.getElementById("linkBreaker");
+    this.linkWrapper = document.getElementById("linkWrapper");
+    this.linkWrapper.textContent = this.url;
     this.addEventListeners();
+    setTimeout(function(){
+      if(!window.navigator.onLine){
+        this.getDownloadedPages();
+      }
+    },10000)
+
+
+    window.addEventListener("offline", (e) => {
+      console.warn("offline");
+    });
+    
+    window.addEventListener("online", (e) => {
+      console.info("online");
+    });
+
+
+
     this.drawCurrentControls();
+    console.log(window.navigator.onLine);
+  }
+  // Test part
+  breakLink(){
+    if(this.linkBreaker.dataset.state === "break"){
+      this.url = "SomeWrongURL";
+      this.linkBreaker.dataset.state = "repair";
+      this.linkBreaker.textContent = "Repair link";
+      this.linkWrapper.textContent = "Current URL: " + this.url;
+      this.isBreaked = true;
+      this.getDownloadedPages();
+    } else if (this.linkBreaker.dataset.state === "repair"){
+      const arrayControls = Array.from(this.controls.children);
+      this.url = this.baseUrl + this.maxItemsPerPage;
+      this.linkBreaker.dataset.state = "break";
+      this.linkBreaker.textContent = "Break link";
+      this.linkWrapper.textContent = "Current URL: " + this.url;
+      console.log(arrayControls);
+      arrayControls.forEach((btn) => {
+        btn.classList.remove("downloaded");
+        btn.classList.remove("unDownloaded");
+      })
+      this.isBreaked = false;
+    }
+  }
+
+
+
+
+
+  //  Main part
+  getDownloadedPages(){
+    const posts = JSON.parse(localStorage.getItem("newPosts"));
+    for(let i = 0; i < this.totalPosts; i = i + this.maxItemsPerPage){
+      if (posts[i] != null){
+        const postsId = +(posts[i].id);
+        this.downloaded[Math.ceil(postsId/this.maxItemsPerPage)] = true;
+      } else{
+        continue;
+      }
+    }
+    this.markDownloaded();
+    console.log(this.downloaded);
+  }
+
+  markDownloaded() {
+    const controls = Array.from(this.controls.children);
+
+    controls.forEach((btn) => {
+      if (this.downloaded.hasOwnProperty(+(btn.textContent))){
+        btn.classList.add("downloaded");
+      } else{
+        btn.classList.add("unDownloaded");
+      }
+    })
+  }
+
+  addPageNumberToUrl(url, page) {
+    const urlWithPage = `_page=${page}&`;
+    let newUrl = url.replace("_page=&", urlWithPage);
+    return newUrl;
+  }
+
+  loading() {
+    this.loadBg = document.createElement("div");
+    this.loadBg.classList.add("loadingBackground");
+    this.load = new Image();
+    this.load.src = "../img/loading.gif";
+    this.load.classList.add("loading");
+    this.loadBg.append(this.load);
+    document.body.append(this.loadBg);
+  }
+
+  startLoad() {
+    this.loading();
+  }
+
+  stopLoad() {
+    this.loadBg.remove();
   }
 
   getPosts(page) {
-    return fetch(`https://jsonplaceholder.typicode.com/posts?_page=${page}&_limit=${this.maxItemsPerPage}`)
-      .then(response => response.json())
+    return fetch(this.addPageNumberToUrl(this.url, page))
+      .then(response => {
+        if(!response.ok){
+          throw new Error("URL doesn't exist!")
+        } else{
+          return response.json();
+        }
+      })
       .then(response => {
         let state = JSON.parse(localStorage.getItem("newPosts"));
-
+        this.downloaded[+(response[response.length - 1].id)/this.maxItemsPerPage] = true;
         if (state === null) {
           state = [];
         }
@@ -38,10 +149,20 @@ class Pagination {
           const index = response[i].id - 1;
           state[index] = response[i];
         }
-        // state.push(...response);
-        // state.sort((a, b) => a.id > b.id ? 1 : -1);
+
+        // response 0 - 30
+        // state 0 - 100...     130-60
+
         const strState = JSON.stringify(state);
         localStorage.setItem("newPosts", strState);
+        return true;
+      })
+      .catch((err) => {
+        console.warn("Fatal error: " + err.message);
+        // throw new Error("Что-то всё совсем плохо")
+        alert("Connection error!");
+        console.log("Error");
+        return false;
       })
   }
 
@@ -87,7 +208,7 @@ class Pagination {
     }
   }
 
-  async drawControls(first, destination, activeBtn) {
+  drawControls(first, destination, activeBtn) {
     this.controls.innerHTML = "";
     const last = first + this.maxButtonsInControlPanel - 1;
     for (let i = first; i <= last; i++) {
@@ -97,10 +218,13 @@ class Pagination {
         break;
       }
     }
+    if(!window.navigator.onLine || this.isBreaked === true){
+      this.markDownloaded();
+    }
     this.drawCurrentState(destination, activeBtn);
   };
 
-  defineActualPage(){
+  defineActualPage() {
     const currentState = JSON.parse(localStorage.getItem("postsState"));
     let currentPage;
 
@@ -130,7 +254,7 @@ class Pagination {
       currentIndex = currentPage;
       firstPage = 1;
       this.drawControls(firstPage, "", currentIndex);
-    } else if(lastBorderPages){
+    } else if (lastBorderPages) {
       currentIndex = currentPage % this.maxButtonsInControlPanel;
       firstPage = this.maxTab - 2 * this.amountOfButtonsAroundSelected;
       this.drawControls(firstPage, "", currentIndex + 1);
@@ -175,15 +299,37 @@ class Pagination {
   async list(page) {
     let state = JSON.parse(localStorage.getItem("newPosts"));
     const nextFirstItemId = (page - 1) * this.maxItemsPerPage + 1;
+
     if (state === null) {
       state = [];
     }
+
 
     let hasObj = this.checkStateOnNextObject(state, nextFirstItemId);
     if (hasObj) {
       this.drawPosts(state, nextFirstItemId);
     } else {
-      await this.getPosts(page);
+      this.startLoad();
+      const isOk = await this.getPosts(page);
+      // const posts = await this.getPosts(page);
+      // try {
+      //   this.getPosts(page)
+      // } catch(e) {
+      //   console.log("Не получилось потому что ");
+      //   console.log(e.msg);
+      // };
+      // await this.getPosts(page);
+
+      /// 80-100 ...... 160-180
+
+      // 2^64
+
+      this.stopLoad();
+      // if(!posts || !posts.length || posts.length == 0){
+      // if(!posts?.length || posts?.length == 0){
+      if(!isOk){
+        return false;
+      }
       const newState = JSON.parse(localStorage.getItem("newPosts"));
       this.drawPosts(newState, nextFirstItemId);
     }
@@ -208,6 +354,11 @@ class Pagination {
       const isFirstTabs = currentPage < this.middleTab;
       const isLastTabs = currentPage > this.maxTab - this.amountOfButtonsAroundSelected;
 
+      const isOk = await this.list(currentPage);
+      if(isOk === false){
+        return;
+      }
+
       if (isFirstTabs) {
         this.drawControls(1, "", newActiveTwo + 1);
         this.turnOnNecesseryBtn(currentPage);
@@ -217,7 +368,6 @@ class Pagination {
       } else {
         this.drawControls(currentPage - this.amountOfButtonsAroundSelected, "", this.middleTab)
       }
-      await this.list(currentPage);
     }
   }
 
@@ -243,10 +393,16 @@ class Pagination {
         }
         const isBorderTabs = activeBtn > this.amountOfButtonsAroundSelected && activeBtn < this.maxTab - this.amountOfButtonsAroundSelected;
         if (isBorderTabs) {
-          await this.list(activeBtn + 1);
+          const isOk = await this.list(activeBtn + 1);
+          if(isOk === false){
+            return;
+          }
           this.drawControls(activeBtn - this.amountOfButtonsAroundSelected + 1, "", this.middleTab);
         } else {
-          await this.list(activeBtn + 1);
+          const isOk = await this.list(activeBtn + 1);
+          if(isOk === false){
+            return;
+          }
           this.changeActiveBtn(activeBtnIndex + 1);
         }
       }
@@ -260,13 +416,19 @@ class Pagination {
 
         const isBorderTabs = activeBtn > this.amountOfButtonsAroundSelected + 1 && activeBtn < this.maxTab - this.amountOfButtonsAroundSelected + 1;
         if (isBorderTabs) {
-          await this.list(activeBtn - 1);
+          const isOk = await this.list(activeBtn - 1);
+          if(isOk === false){
+            return;
+          }
           this.drawControls(activeBtn - this.amountOfButtonsAroundSelected - 1, "", this.middleTab);
-        } else{
+        } else {
+          const isOk = await this.list(activeBtn - 1);
+          if(isOk === false){
+            return;
+          }
           this.changeActiveBtn(activeBtnIndex - 1)
-          this.list(activeBtn - 1);
         }
-        
+
       }
     }
   }
@@ -285,7 +447,10 @@ class Pagination {
       console.log("Max!");
       return;
     }
-    await this.list(this.maxTab);
+    const isOk = await this.list(this.maxTab);
+    if(isOk === false){
+      return;
+    }
     this.drawControls(this.maxTab - this.maxButtonsInControlPanel + 1, "", this.maxButtonsInControlPanel)
   }
 
@@ -295,7 +460,10 @@ class Pagination {
       console.log("Min!");
       return;
     }
-    await this.list(1);
+    const isOk = await this.list(1);
+    if(isOk === false){
+      return;
+    }
     this.drawControls(1, "", 1);
   }
 
@@ -304,6 +472,7 @@ class Pagination {
     this.arrows.addEventListener("click", this.arrowsTab.bind(this));
     this.next.addEventListener("click", this.toFinalPage.bind(this));
     this.previos.addEventListener("click", this.toFirstPage.bind(this));
+    this.linkBreaker.addEventListener("click", this.breakLink.bind(this));
   }
 }
 
@@ -661,7 +830,28 @@ class Pagination {
 // pagination(URL1);
 
 const cfg = {
-  wrapper: ".pagination1"
+  wrapper: ".pagination1",
+  maxItemsPerPage: 8,
+  maxButtonsInControlPanel: 7,
+  url: "https://jsonplaceholder.typicode.com/posts?_page=&_limit="
 }
 
 const pagination1 = new Pagination(cfg);
+
+
+// GIT
+
+//
+// docker -> docker-compose
+// migration <--
+
+// [[all_good]].rar
+
+
+
+// npm => nodeJS
+/// TS => webpack/gulp
+// webpack => nodeJS
+// nodeJS 
+// sass => sass-builder => webpack => npm => nodeJS
+// react => webpack => npm => nodeJS
